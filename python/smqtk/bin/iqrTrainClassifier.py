@@ -61,7 +61,7 @@ def train_classifier_iqr(config, iqr_state_fp):
                            "SupervisedClassifier type in order to train.")
 
     # Get pos/neg descriptors out of iqr state zip
-    z_file = open(iqr_state_fp, 'r')
+    z_file = open(iqr_state_fp, 'rb')
     z = zipfile.ZipFile(z_file)
     if len(z.namelist()) != 1:
         raise RuntimeError("Invalid IqrState file!")

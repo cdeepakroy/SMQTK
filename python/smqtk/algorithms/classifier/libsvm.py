@@ -162,7 +162,7 @@ class LibSvmClassifier (SupervisedClassifier):
                 with open(fp, 'wb') as model_f:
                     model_f.write(state['__LOCAL_MODEL__'])
 
-                fp_bytes = fp.encode('utf8')
+                fp_bytes = fp.encode('utf-8')
                 self.svm_model = svmutil.svm_load_model(fp_bytes)
 
             finally:
@@ -177,7 +177,8 @@ class LibSvmClassifier (SupervisedClassifier):
         """
         if self.svm_model_elem and not self.svm_model_elem.is_empty():
             svm_model_tmp_fp = self.svm_model_elem.write_temp()
-            self.svm_model = svmutil.svm_load_model(svm_model_tmp_fp)
+            svm_model_tmp_fp_bytes = svm_model_tmp_fp.encode('utf-8')
+            self.svm_model = svmutil.svm_load_model(svm_model_tmp_fp_bytes)
             self.svm_model_elem.clean_temp()
 
         if self.svm_label_map_elem and not self.svm_label_map_elem.is_empty():
@@ -347,7 +348,8 @@ class LibSvmClassifier (SupervisedClassifier):
             # intermediate temporary file.
             fd, fp = tempfile.mkstemp()
             try:
-                svmutil.svm_save_model(fp, self.svm_model)
+                fp_bytes = fp.encode('utf-8')
+                svmutil.svm_save_model(fp_bytes, self.svm_model)
                 self.svm_model_elem.set_bytes(
                     os.read(fd, os.path.getsize(fp))
                 )
