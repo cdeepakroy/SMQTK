@@ -32,9 +32,9 @@ from smqtk.web.search_app.modules.static_host import StaticDirectoryHost
 
 from smqtk.algorithms.descriptor_generator.pytorch_classlabel_saliency_descriptor import PytorchSaliencyDescriptorGenerator
 from smqtk.algorithms.descriptor_generator.pytorch_distance_saliency_descriptor import PytorchDisSaliencyDescriptorGenerator
+from smqtk.algorithms.descriptor_generator.pytorch_relevance_saliency_descriptor import PytorchRelevanceSaliencyDescriptorGenerator
 
-
-__author__ = 'paul.tunison@kitware.com, bo.dong@kitware.com'
+__author__ = 'paul.tunison@kitware.com, bo.dong@kitware.com, deepak.chittajallu@kitware.com'
 
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -209,8 +209,10 @@ class IqrSearch (SmqtkObject, flask.Flask, Configurable):
 
         self._pos_seed_neighbors = int(pos_seed_neighbors)
 
-        if isinstance(self._descriptor_generator, PytorchSaliencyDescriptorGenerator) or \
-                isinstance(self._descriptor_generator, PytorchDisSaliencyDescriptorGenerator):
+        saliency_desc_gen_list = [PytorchSaliencyDescriptorGenerator,
+                                  PytorchDisSaliencyDescriptorGenerator,
+                                  PytorchRelevanceSaliencyDescriptorGenerator]
+        if isinstance(self._descriptor_generator, saliency_desc_gen_list):
             self._saliency_descr_flag = True
         else:
             self._saliency_descr_flag = False
@@ -438,9 +440,16 @@ class IqrSearch (SmqtkObject, flask.Flask, Configurable):
                         if iqrs.query_uuid not in desr.saliency_map():
                             self._log.debug('desr original dict: {}'.format(desr.saliency_map()))
                             self._log.debug('generate new saliency map for label {}'.format(iqrs.query_uuid))
+                            desc_gen_kwargs = dict(
+                                query_f=iqrs.query_f,
+                                query_uuid=iqrs.query_uuid
+                            )
+                            if isinstance(self._descriptor_generator, PytorchRelevanceSaliencyDescriptorGenerator):
+                                desc_gen_kwargs['rel_index'] = iqrs.rel_index
                             temp_descr = \
                                 self._descriptor_generator.compute_descriptor(
-                                    de, self._descr_elem_factory, query_f=iqrs.query_f, query_uuid=iqrs.query_uuid
+                                    de, self._descr_elem_factory,
+                                    **desc_gen_kwargs
                                 )
                             desr.update_saliency_map(temp_descr.saliency_map())
 
