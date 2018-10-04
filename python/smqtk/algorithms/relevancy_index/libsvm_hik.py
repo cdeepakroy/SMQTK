@@ -356,7 +356,7 @@ class LibSvmHikRelevancyIndex (RelevancyIndex):
         num_SVs = sum(self._svm_model.nSV[:self._svm_model.nr_class])
 
         # Support vector dimensionality
-        dim_SVs = len(self._descr_matrix.shape[1])
+        dim_SVs = self._descr_matrix.shape[1]
 
         # initialize matrix they're going into
         svm_SVs = numpy.ndarray((num_SVs, dim_SVs), dtype=float)
