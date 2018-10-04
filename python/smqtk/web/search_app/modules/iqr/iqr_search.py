@@ -209,9 +209,9 @@ class IqrSearch (SmqtkObject, flask.Flask, Configurable):
 
         self._pos_seed_neighbors = int(pos_seed_neighbors)
 
-        saliency_desc_gen_list = [PytorchSaliencyDescriptorGenerator,
+        saliency_desc_gen_list = (PytorchSaliencyDescriptorGenerator,
                                   PytorchDisSaliencyDescriptorGenerator,
-                                  PytorchRelevanceSaliencyDescriptorGenerator]
+                                  PytorchRelevanceSaliencyDescriptorGenerator)
         if isinstance(self._descriptor_generator, saliency_desc_gen_list):
             self._saliency_descr_flag = True
         else:
