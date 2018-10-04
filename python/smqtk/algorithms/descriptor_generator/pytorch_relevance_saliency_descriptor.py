@@ -23,7 +23,7 @@ from smqtk.representation.data_element.memory_element import DataMemoryElement
 from smqtk.representation.data_set.file_set import DataFileSet
 from smqtk.utils.pytorch_metrics import DIS_TYPE, L2_dis, his_intersection_dis
 
-from smqtk.algorithms.classifier.pytorch_distance_saliency_descriptor import generate_block_masks, TensorDataset
+from smqtk.algorithms.descriptor_generator.pytorch_distance_saliency_descriptor import generate_block_masks, TensorDataset
 
 try:
     import torch
