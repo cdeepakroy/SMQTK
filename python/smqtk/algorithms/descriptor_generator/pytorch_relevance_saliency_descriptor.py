@@ -23,6 +23,8 @@ from smqtk.representation.data_element.memory_element import DataMemoryElement
 from smqtk.representation.data_set.file_set import DataFileSet
 from smqtk.utils.pytorch_metrics import DIS_TYPE, L2_dis, his_intersection_dis
 
+from smqtk.algorithms.classifier.pytorch_distance_saliency_descriptor import generate_block_masks, TensorDataset
+
 try:
     import torch
 except ImportError as ex:
@@ -48,67 +50,6 @@ __author__ = 'deepak.chittajallu@kitware.com'
 __all__ = [
     "PytorchRelevanceSaliencyDescriptorGenerator",
 ]
-
-
-def generate_block_masks(grid_size, stride, image_size=(224, 224)):
-    """
-    Generating the sliding window style masks
-
-    :param grid_size: the block window size (with value 0, other areas with value 1)
-    :type grid_size: int
-
-    :param stride: the sliding step
-    :type stride: int
-
-    :param image_size: the mask size which should be the same to the image size
-    :type image_size: tuple (default: (224, 224))
-
-    :return: the sliding window style masks
-    :rtype: torch.cuda.Tensor
-    """
-    if not os.path.isfile('block_mask_{}_{}.npy'.format(grid_size, stride)):
-        grid_num_r = (image_size[0] - grid_size) // stride
-        grid_num_c = (image_size[1] - grid_size) // stride
-        mask_num = grid_num_r * grid_num_c
-        print('mask_num {}'.format(mask_num))
-
-        masks = np.ones((mask_num, image_size[0], image_size[1]), dtype=np.float32)
-        i = 0
-        for r in tqdm(np.arange(0, image_size[0] - grid_size, stride), total=grid_num_r, desc="Generating rows"):
-            for c in np.arange(0, image_size[1] - grid_size, stride):
-                masks[i, r:r + grid_size, c:c + grid_size] = 0.0
-                i += 1
-
-        masks = masks.reshape(-1, 1, *image_size)
-        masks.tofile('block_mask_{}_{}.npy'.format(grid_size, stride))
-    else:
-        masks = np.fromfile('block_mask_{}_{}.npy'.format(grid_size, stride),
-                            dtype=np.float32).reshape(-1, 1, *image_size)
-
-    masks = torch.from_numpy(masks).float().to(torch.device("cuda"))
-    return masks
-
-
-class TensorDataset(data.Dataset):
-    """
-    Apply the N filters/masks onto one input image
-    """
-    def __init__(self, filters, img):
-        self._filters = filters
-        self._img = img
-
-    def __getitem__(self, index):
-        """
-        Generate the masked image on the fly in order to save
-        GPU memory
-
-        :param index: mask index
-        :return: masked image by applying the idxth mask
-        """
-        return torch.mul(self._filters[index], self._img)
-
-    def __len__(self):
-        return self._filters.size(0)
 
 
 class RelevanceMaskSaliencyDataset(data.Dataset):
