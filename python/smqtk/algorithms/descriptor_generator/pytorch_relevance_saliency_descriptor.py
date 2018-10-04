@@ -77,7 +77,7 @@ class RelevanceMaskSaliencyDataset(data.Dataset):
         self._img_set = None
         self._process_img = None
         self._process_imgbatch = None
-        self._relevance_classifier = None
+        self._rel_index = None
         self._classifier = classifier
         self._batch_size = batch_size
         self._filters_num = masks.size(0)
@@ -528,7 +528,7 @@ class PytorchRelevanceSaliencyDescriptorGenerator (DescriptorGenerator):
                                  descr_factory=DFLT_DESCRIPTOR_FACTORY,
                                  overwrite=False, procs=None,
                                  query_f=None, query_uuid=None,
-                                 rel_index=None
+                                 rel_index=None,
                                  **kwds):
         """
         Asynchronously compute feature data for multiple data items.
