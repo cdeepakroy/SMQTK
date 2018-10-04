@@ -112,7 +112,13 @@ class LibSvmHikRelevancyIndex (RelevancyIndex):
                 self.build_index(descriptors)
                 self.descr_cache_fp = descr_cache_filepath
 
+        # Keep a cache of SVM model to score any given descriptor vector
         self._svm_model = None
+
+        # Keep a cache of SVM support vectors
+        self._svm_SVs = None
+
+        # Store whether or not to invert SVM probabilities
         self._invert_svm_probs = False
 
     @staticmethod
@@ -185,6 +191,7 @@ class LibSvmHikRelevancyIndex (RelevancyIndex):
                 cPickle.dump(self._descr_cache, f, -1)
 
         self._svm_model = None
+        self._svm_SVs = None
         self._invert_svm_probs = False
 
     def rank(self, pos, neg):
@@ -286,15 +293,20 @@ class LibSvmHikRelevancyIndex (RelevancyIndex):
         #
 
         self._log.debug("making test distance matrix")
+
         # Number of support vectors
         # Q: is this always the same as ``svm_model.l``?
         num_SVs = sum(svm_model.nSV[:svm_model.nr_class])
+
         # Support vector dimensionality
         dim_SVs = len(train_vectors[0])
+
         # initialize matrix they're going into
         svm_SVs = numpy.ndarray((num_SVs, dim_SVs), dtype=float)
         for i, nlist in enumerate(svm_model.SV[:svm_SVs.shape[0]]):
             svm_SVs[i, :] = [n.value for n in nlist[:len(train_vectors[0])]]
+        self._svm_SVs = svm_SVs
+
         # compute matrix of distances from support vectors to index elements
         # TODO: Optimize this step by caching SV distance vectors
         #       - It is known that SVs are vectors from the training data, so
@@ -305,14 +317,14 @@ class LibSvmHikRelevancyIndex (RelevancyIndex):
         #           have already been computed before.
         #       - At worst, we're effectively doing this call because each SV
         #           needs to have its distance vector computed.
-        svm_test_k = compute_distance_matrix(svm_SVs, self._descr_matrix,
-                                             histogram_intersection_distance,
-                                             row_wise=True)
+        sv_dist_mat = compute_distance_matrix(svm_SVs, self._descr_matrix,
+                                              histogram_intersection_distance,
+                                              row_wise=True)
 
         self._log.debug("Platt scaling")
         # the actual platt scaling stuff
         weights = numpy.array(svm_model.get_sv_coef()).flatten()
-        margins = numpy.dot(weights, svm_test_k)
+        margins = numpy.dot(weights, sv_dist_mat)
         rho = svm_model.rho[0]
         probA = svm_model.probA[0]
         probB = svm_model.probB[0]
@@ -358,26 +370,13 @@ class LibSvmHikRelevancyIndex (RelevancyIndex):
         :type: numpy array
         """
 
-        descriptors = numpy.array(descriptors)
+        descr_matrix = numpy.array(descriptors)
 
-        assert(descriptors.ndim == 2)
+        assert(descr_matrix.ndim == 2)
 
         #
         # Platt Scaling for probability rankings
         #
-
-        # Number of support vectors
-        # Q: is this always the same as ``svm_model.l``?
-        num_SVs = sum(self._svm_model.nSV[:self._svm_model.nr_class])
-
-        # Support vector dimensionality
-        dim_SVs = self._descr_matrix.shape[1]
-
-        # initialize matrix they're going into
-        svm_SVs = numpy.ndarray((num_SVs, dim_SVs), dtype=float)
-
-        for i, nlist in enumerate(self._svm_model.SV[:num_SVs]):
-            svm_SVs[i, :] = [n.value for n in nlist[:dim_SVs]]
 
         # compute matrix of distances from support vectors to descriptors
         # TODO: Optimize this step by caching SV distance vectors
@@ -389,7 +388,7 @@ class LibSvmHikRelevancyIndex (RelevancyIndex):
         #           have already been computed before.
         #       - At worst, we're effectively doing this call because each SV
         #           needs to have its distance vector computed.
-        sv_dist_mat = compute_distance_matrix(svm_SVs, descr_matrix,
+        sv_dist_mat = compute_distance_matrix(self._svm_SVs, descr_matrix,
                                               histogram_intersection_distance,
                                               row_wise=True)
 
