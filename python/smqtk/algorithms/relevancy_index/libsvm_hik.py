@@ -112,6 +112,9 @@ class LibSvmHikRelevancyIndex (RelevancyIndex):
                 self.build_index(descriptors)
                 self.descr_cache_fp = descr_cache_filepath
 
+        self._svm_model = None
+        self._invert_svm_probs = False
+
     @staticmethod
     def _gen_w1_weight(num_pos, num_neg):
         """
@@ -182,6 +185,7 @@ class LibSvmHikRelevancyIndex (RelevancyIndex):
                 cPickle.dump(self._descr_cache, f, -1)
 
         self._svm_model = None
+        self._invert_svm_probs = False
 
     def rank(self, pos, neg):
         """
@@ -334,6 +338,7 @@ class LibSvmHikRelevancyIndex (RelevancyIndex):
         # probability. If so, the platt scaling probably needs to be flipped.
         if (pos_probs.sum() / pos_probs.size) < (probs.sum() / probs.size):
             self._log.debug("inverting probabilities")
+            self._invert_svm_probs = True
             probs = 1. - probs
 
         rank_pool = dict(zip(self._descr_cache, probs))
@@ -345,8 +350,6 @@ class LibSvmHikRelevancyIndex (RelevancyIndex):
         #
         # Platt Scaling for probability rankings
         #
-
-        self._log.debug("making test distance matrix")
 
         # Number of support vectors
         # Q: is this always the same as ``svm_model.l``?
@@ -375,8 +378,6 @@ class LibSvmHikRelevancyIndex (RelevancyIndex):
                                               histogram_intersection_distance,
                                               row_wise=True)
 
-        self._log.debug("Platt scaling")
-
         # the actual platt scaling stuff
         weights = numpy.array(self._svm_model.get_sv_coef()).flatten()
         margins = numpy.dot(weights, sv_dist_mat)
@@ -386,6 +387,9 @@ class LibSvmHikRelevancyIndex (RelevancyIndex):
 
         #: :type: numpy.core.multiarray.ndarray
         probs = 1.0 / (1.0 + numpy.exp((margins - rho) * probA + probB))
+
+        if self._invert_svm_probs:
+            probs = 1. - probs
 
         return probs
 
