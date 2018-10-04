@@ -67,10 +67,11 @@ class RelevancyIndex (SmqtkAlgorithm):
     @abc.abstractmethod
     def score(self, descriptors):
         """
-        Compute the relevance score/probability of
+        Compute the relevance score/probability of the list of descriptor
+        vectors provided as input.
 
-        :param descriptors: matrix where in each row is a descriptor vector
-        :type descriptors: numpy array
+        :param descriptors: list of descriptor vectors
+        :type descriptors: list
 
         :return: vector containing the relevance scores/probabilities of the
                  descriptors provided.

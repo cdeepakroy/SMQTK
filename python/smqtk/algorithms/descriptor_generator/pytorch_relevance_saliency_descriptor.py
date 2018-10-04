@@ -229,7 +229,7 @@ class RelevanceMaskSaliencyDataset(data.Dataset):
 
         else:
 
-            unmasked_img_prob = self._rel_index.score(unmasked_img_f)[0]
+            unmasked_img_prob = self._rel_index.score([unmasked_img_f])[0]
 
         def obtain_masked_img_targetP(img):
             """

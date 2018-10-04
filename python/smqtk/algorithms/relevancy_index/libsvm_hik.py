@@ -345,7 +345,22 @@ class LibSvmHikRelevancyIndex (RelevancyIndex):
 
         return rank_pool
 
-    def score(self, descr_matrix):
+    def score(self, descriptors):
+        """
+        Compute the relevance score/probability of the list of descriptor
+        vectors provided as input.
+
+        :param descriptors: list of descriptor vectors
+        :type descriptors: list
+
+        :return: vector containing the relevance scores/probabilities of the
+                 descriptors provided.
+        :type: numpy array
+        """
+
+        descriptors = numpy.array(descriptors)
+
+        assert(descriptors.ndim == 2)
 
         #
         # Platt Scaling for probability rankings
