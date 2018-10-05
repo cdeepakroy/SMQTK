@@ -229,7 +229,7 @@ class RelevanceMaskSaliencyDataset(data.Dataset):
 
         else:
 
-            unmasked_img_prob = self._rel_index.score([unmasked_img_f.cpu().numpy()])[0]
+            unmasked_img_prob = self._rel_index.score([unmasked_img_f.cpu().numpy().flatten()])[0]
 
         def obtain_masked_img_targetP(img):
             """
@@ -267,7 +267,10 @@ class RelevanceMaskSaliencyDataset(data.Dataset):
 
                 sim.append(dis_diff)
 
-            sim = torch.cat(sim)
+            if self._rel_index is None:
+                sim = torch.cat(sim)
+            else:
+                sim = torch.from_numpy(np.concatenate(sim)).to(self._device)
 
             return sim
 
