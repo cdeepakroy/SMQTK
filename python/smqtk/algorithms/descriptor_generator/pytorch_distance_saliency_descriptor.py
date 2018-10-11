@@ -67,8 +67,8 @@ def generate_block_masks(grid_size, stride, image_size=(224, 224)):
     :rtype: torch.cuda.Tensor
     """
     if not os.path.isfile('block_mask_{}_{}.npy'.format(grid_size, stride)):
-        grid_num_r = (image_size[0] - grid_size) // stride
-        grid_num_c = (image_size[1] - grid_size) // stride
+        grid_num_r = 1 + ((image_size[0] - grid_size) // stride)
+        grid_num_c = 1 + ((image_size[1] - grid_size) // stride)
         mask_num = grid_num_r * grid_num_c
         print('mask_num {}'.format(mask_num))
 
