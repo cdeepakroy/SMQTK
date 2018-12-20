@@ -94,7 +94,7 @@ class LibSvmHikRelevancyIndex (RelevancyIndex):
 
         # Descriptor elements in this index
         self._descr_cache = []
-        # Local serialization of descriptor vectors. Used when for computing
+        # Local serialization of descriptor vectors. Used for computing
         # distances of SVM support vectors for Platt Scaling
         self._descr_matrix = None
         # Mapping of descriptor vectors to their index in the cache, and
@@ -111,6 +111,15 @@ class LibSvmHikRelevancyIndex (RelevancyIndex):
                 self.descr_cache_fp = None
                 self.build_index(descriptors)
                 self.descr_cache_fp = descr_cache_filepath
+
+        # Keep a cache of SVM model to score any given descriptor vector
+        self._svm_model = None
+
+        # Keep a cache of SVM support vectors
+        self._svm_SVs = None
+
+        # Store whether or not to invert SVM probabilities
+        self._invert_svm_probs = False
 
     @staticmethod
     def _gen_w1_weight(num_pos, num_neg):
@@ -180,6 +189,10 @@ class LibSvmHikRelevancyIndex (RelevancyIndex):
         if self.descr_cache_fp:
             with open(self.descr_cache_fp, 'wb') as f:
                 cPickle.dump(self._descr_cache, f, -1)
+
+        self._svm_model = None
+        self._svm_SVs = None
+        self._invert_svm_probs = False
 
     def rank(self, pos, neg):
         """
@@ -273,20 +286,27 @@ class LibSvmHikRelevancyIndex (RelevancyIndex):
         if svm_model.l == 0:
             raise RuntimeError("SVM Model learning failed")
 
+        self._svm_model = svm_model
+
         #
         # Platt Scaling for probability rankings
         #
 
         self._log.debug("making test distance matrix")
+
         # Number of support vectors
         # Q: is this always the same as ``svm_model.l``?
         num_SVs = sum(svm_model.nSV[:svm_model.nr_class])
+
         # Support vector dimensionality
         dim_SVs = len(train_vectors[0])
+
         # initialize matrix they're going into
         svm_SVs = numpy.ndarray((num_SVs, dim_SVs), dtype=float)
         for i, nlist in enumerate(svm_model.SV[:svm_SVs.shape[0]]):
             svm_SVs[i, :] = [n.value for n in nlist[:len(train_vectors[0])]]
+        self._svm_SVs = svm_SVs
+
         # compute matrix of distances from support vectors to index elements
         # TODO: Optimize this step by caching SV distance vectors
         #       - It is known that SVs are vectors from the training data, so
@@ -297,14 +317,14 @@ class LibSvmHikRelevancyIndex (RelevancyIndex):
         #           have already been computed before.
         #       - At worst, we're effectively doing this call because each SV
         #           needs to have its distance vector computed.
-        svm_test_k = compute_distance_matrix(svm_SVs, self._descr_matrix,
-                                             histogram_intersection_distance,
-                                             row_wise=True)
+        sv_dist_mat = compute_distance_matrix(svm_SVs, self._descr_matrix,
+                                              histogram_intersection_distance,
+                                              row_wise=True)
 
         self._log.debug("Platt scaling")
         # the actual platt scaling stuff
         weights = numpy.array(svm_model.get_sv_coef()).flatten()
-        margins = numpy.dot(weights, svm_test_k)
+        margins = numpy.dot(weights, sv_dist_mat)
         rho = svm_model.rho[0]
         probA = svm_model.probA[0]
         probB = svm_model.probB[0]
@@ -330,10 +350,61 @@ class LibSvmHikRelevancyIndex (RelevancyIndex):
         # probability. If so, the platt scaling probably needs to be flipped.
         if (pos_probs.sum() / pos_probs.size) < (probs.sum() / probs.size):
             self._log.debug("inverting probabilities")
+            self._invert_svm_probs = True
             probs = 1. - probs
 
         rank_pool = dict(zip(self._descr_cache, probs))
+
         return rank_pool
 
+    def score(self, descriptors):
+        """
+        Compute the relevance score/probability of the list of descriptor
+        vectors provided as input.
+
+        :param descriptors: list of descriptor vectors
+        :type descriptors: list
+
+        :return: vector containing the relevance scores/probabilities of the
+                 descriptors provided.
+        :type: numpy array
+        """
+
+        descr_matrix = numpy.array(descriptors)
+
+        assert(descr_matrix.ndim == 2)
+
+        #
+        # Platt Scaling for probability rankings
+        #
+
+        # compute matrix of distances from support vectors to descriptors
+        # TODO: Optimize this step by caching SV distance vectors
+        #       - It is known that SVs are vectors from the training data, so
+        #           if the same descriptors are given to this function
+        #           repeatedly (which is the case for IQR), this can be faster
+        #           because we're only computing at most a few more distance
+        #           vectors against our indexed descriptor matrix, and the rest
+        #           have already been computed before.
+        #       - At worst, we're effectively doing this call because each SV
+        #           needs to have its distance vector computed.
+        sv_dist_mat = compute_distance_matrix(self._svm_SVs, descr_matrix,
+                                              histogram_intersection_distance,
+                                              row_wise=True)
+
+        # the actual platt scaling stuff
+        weights = numpy.array(self._svm_model.get_sv_coef()).flatten()
+        margins = numpy.dot(weights, sv_dist_mat)
+        rho = self._svm_model.rho[0]
+        probA = self._svm_model.probA[0]
+        probB = self._svm_model.probB[0]
+
+        #: :type: numpy.core.multiarray.ndarray
+        probs = 1.0 / (1.0 + numpy.exp((margins - rho) * probA + probB))
+
+        if self._invert_svm_probs:
+            probs = 1. - probs
+
+        return probs
 
 RELEVANCY_INDEX_CLASS = LibSvmHikRelevancyIndex
